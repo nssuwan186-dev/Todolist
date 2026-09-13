@@ -1,119 +1,236 @@
-import 'package:flutter/material.dart';
-// HTTP method package
-import 'package:http/http.dart' as http;
 import 'dart:async';
-import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:todolist/config.dart';
 
 class UpdatePage extends StatefulWidget {
-  final v1, v2, v3;
-  const UpdatePage(this.v1, this.v2, this.v3);
+  final dynamic id;
+  final String title;
+  final String detail;
+
+  const UpdatePage(this.id, this.title, this.detail, {Key? key}) : super(key: key);
 
   @override
   _UpdatePageState createState() => _UpdatePageState();
 }
 
 class _UpdatePageState extends State<UpdatePage> {
-  var _v1, _v2, _v3;
-  TextEditingController todo_title = TextEditingController();
-  TextEditingController todo_detail = TextEditingController();
+  late TextEditingController todoTitle;
+  late TextEditingController todoDetail;
+  bool isUpdating = false;
+  bool isDeleting = false;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-    _v1 = widget.v1; // id
-    _v2 = widget.v2; // title
-    _v3 = widget.v3; // detail
-    todo_title.text = _v2;
-    todo_detail.text = _v3;
+    todoTitle = TextEditingController(text: widget.title);
+    todoDetail = TextEditingController(text: widget.detail);
+  }
+
+  @override
+  void dispose() {
+    todoTitle.dispose();
+    todoDetail.dispose();
+    super.dispose();
+  }
+
+  Future<void> confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('ยืนยันการลบ'),
+          ],
+        ),
+        content: Text('คุณต้องการลบรายการ "${widget.title}" นี้หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('ยกเลิก'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('ลบรายการ', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      deleteTodo();
+    }
+  }
+
+  Future<void> deleteTodo() async {
+    setState(() {
+      isDeleting = true;
+    });
+
+    try {
+      var url = AppConfig.getUri('/api/delete-todolist/${widget.id}');
+      var response = await http.delete(url).timeout(Duration(seconds: 7));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Navigator.pop(context, 'delete');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ลบไม่สำเร็จ (รหัสสถานะ: ${response.statusCode})'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isDeleting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> updateTodo() async {
+    final title = todoTitle.text.trim();
+    final detail = todoDetail.text.trim();
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('กรุณากรอกหัวข้อรายการ'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      var url = AppConfig.getUri('/api/update-todolist/${widget.id}');
+      Map<String, String> headers = {
+        "Content-type": "application/json; charset=UTF-8"
+      };
+      String jsondata = '{"title": ${jsonEncodeString(title)}, "detail": ${jsonEncodeString(detail)}}';
+
+      var response = await http.put(url, headers: headers, body: jsondata).timeout(Duration(seconds: 7));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Navigator.pop(context, 'update');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('อัพเดทไม่สำเร็จ (รหัสสถานะ: ${response.statusCode})'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
+
+  String jsonEncodeString(String value) {
+    return '"' +
+        value
+            .replaceAll(r'\', r'\\')
+            .replaceAll('"', r'\"')
+            .replaceAll('\n', r'\n')
+            .replaceAll('\r', r'\r')
+            .replaceAll('\t', r'\t') +
+        '"';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text("แก้ไข"),
-          actions: [
-            IconButton(
-                onPressed: () {
-                  print('Delete ID: $_v1');
-                  deleteTodo();
-                  Navigator.pop(context, 'delete'); //เหมอืนการกด back <--
-                },
-                icon: Icon(
-                  Icons.delete,
-                  color: Colors.red,
-                ))
-          ],
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: ListView(
-            children: [
-              //ช่องกรอกข้อมูล title
-              TextField(
-                  controller: todo_title,
-                  decoration: InputDecoration(
-                      labelText: 'รายการที่ต้องทำ',
-                      border: OutlineInputBorder())),
-              SizedBox(
-                height: 30,
+      appBar: AppBar(
+        title: Text("แก้ไขรายการ"),
+        actions: [
+          IconButton(
+            tooltip: 'ลบรายการนี้',
+            onPressed: (isDeleting || isUpdating) ? null : confirmDelete,
+            icon: isDeleting
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Icon(Icons.delete, color: Colors.redAccent),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: ListView(
+          children: [
+            TextField(
+              controller: todoTitle,
+              decoration: InputDecoration(
+                labelText: 'รายการที่ต้องทำ *',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: Icon(Icons.edit_note),
               ),
-              TextField(
-                  minLines: 4,
-                  maxLines: 8,
-                  controller: todo_detail,
-                  decoration: InputDecoration(
-                      labelText: 'รายละเอียด', border: OutlineInputBorder())),
-              SizedBox(
-                height: 30,
+            ),
+            SizedBox(height: 20),
+            TextField(
+              minLines: 4,
+              maxLines: 8,
+              controller: todoDetail,
+              decoration: InputDecoration(
+                labelText: 'รายละเอียด',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: Icon(Icons.description),
+                alignLabelWithHint: true,
               ),
-
-              //ปุ่มเพิ่มข้อมูล
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: ElevatedButton(
-                  onPressed: () {
-                    print('----------');
-                    print('title : ${todo_title.text}');
-                    print('detail: ${todo_detail.text}');
-                    updateTodo();
-                    final snackBar = SnackBar(
-                      content: const Text('อัพเดทรายการสำเร็จ'),
-                    );
-
-                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                  },
-                  child: Text("แก้ไข"),
-                  style: ButtonStyle(
-                      backgroundColor: MaterialStateProperty.all(Colors.blue),
-                      padding: MaterialStateProperty.all(
-                          EdgeInsets.fromLTRB(50, 20, 50, 20)),
-                      textStyle:
-                          MaterialStateProperty.all(TextStyle(fontSize: 30))),
+            ),
+            SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: (isUpdating || isDeleting) ? null : updateTodo,
+              icon: isUpdating
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(Icons.check_circle_outline),
+              label: Text(
+                isUpdating ? "กำลังบันทึกการแก้ไข..." : "บันทึกการแก้ไข",
+                style: TextStyle(fontSize: 18),
+              ),
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ],
-          ),
-        ));
-  }
-
-  Future updateTodo() async {
-    //var url = Uri.https('2884-2001-fb1-97-91e5-c5d8-f19d-1378-af48.ngrok.io','/api/post-todolist');
-    var url = Uri.http('192.168.1.34:8000', '/api/update-todolist/$_v1');
-    Map<String, String> header = {"Content-type": "application/json"};
-    String jsondata =
-        '{"title":"${todo_title.text}", "detail":"${todo_detail.text}"}';
-    var response = await http.put(url, headers: header, body: jsondata);
-    print('--------result--------');
-    print(response.body);
-  }
-
-  Future deleteTodo() async {
-    var url = Uri.http('192.168.1.34:8000', '/api/delete-todolist/$_v1');
-    Map<String, String> header = {"Content-type": "application/json"};
-    var response = await http.delete(url, headers: header);
-    print('--------result--------');
-    print(response.body);
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
