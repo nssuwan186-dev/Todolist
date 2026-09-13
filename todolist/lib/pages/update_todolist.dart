@@ -192,7 +192,7 @@ class _UpdatePageState extends State<UpdatePage> {
               decoration: InputDecoration(
                 labelText: 'รายการที่ต้องทำ *',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: Icon(Icons.edit_note),
+                prefixIcon: Icon(Icons.edit),
               ),
             ),
             SizedBox(height: 20),

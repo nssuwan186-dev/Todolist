@@ -171,7 +171,7 @@ class _TodolistState extends State<Todolist> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.checklist_rtl, size: 80, color: Colors.grey[400]),
+                  Icon(Icons.list_alt, size: 80, color: Colors.grey[400]),
                   SizedBox(height: 16),
                   Text(
                     'ยังไม่มีรายการที่ต้องทำ',
