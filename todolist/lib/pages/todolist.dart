@@ -11,6 +11,7 @@ class Todolist extends StatefulWidget {
 class _TodolistState extends State<Todolist> {
   List<Map<String, dynamic>> todolistitems = [];
   bool isLoading = true;
+  String? currentSheetUrl;
 
   @override
   void initState() {
@@ -23,20 +24,110 @@ class _TodolistState extends State<Todolist> {
       isLoading = true;
     });
 
+    final url = await TodoService.getSheetUrl();
     final data = await TodoService.getTodos();
 
     setState(() {
+      currentSheetUrl = url;
       todolistitems = data;
       isLoading = false;
     });
+  }
+
+  void showGoogleSheetDialog() {
+    final controller = TextEditingController(text: currentSheetUrl ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.table_chart, color: Colors.green),
+            SizedBox(width: 8),
+            Text('เชื่อมต่อ Google Sheet'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'วางลิงก์ Web App URL ที่ได้จาก Google Apps Script:',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: 'Web App URL',
+                  hintText: 'https://script.google.com/macros/s/.../exec',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+                maxLines: 2,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'ไฟล์โค้ดสคริปต์ถูกสร้างไว้ที่โฟลเดอร์ดาวน์โหลดแล้ว:\ngoogle_sheet_script.js',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (currentSheetUrl != null)
+            TextButton(
+              onPressed: () async {
+                await TodoService.setSheetUrl(null);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('ยกเลิกการเชื่อมต่อ กลับมาใช้ในเครื่องแล้ว')),
+                );
+                loadTodos();
+              },
+              child: Text('ใช้ในเครื่อง (ตัดการเชื่อมต่อ)', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('ปิด'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                await TodoService.setSheetUrl(text);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('บันทึกและเชื่อมต่อ Google Sheet เรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                loadTodos();
+              }
+            },
+            child: Text('บันทึก'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('รายการที่ต้องทำ'),
+        title: Text(currentSheetUrl != null ? 'Todolist (Google Sheet)' : 'Todolist (ในเครื่อง)'),
         actions: [
+          IconButton(
+            tooltip: 'เชื่อมต่อ Google Sheet',
+            icon: Icon(
+              Icons.table_chart,
+              color: currentSheetUrl != null ? Colors.greenAccent : Colors.white,
+            ),
+            onPressed: showGoogleSheetDialog,
+          ),
           IconButton(
             tooltip: 'รีเฟรชรายการ',
             icon: Icon(Icons.refresh, color: Colors.white),
