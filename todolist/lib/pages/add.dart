@@ -1,7 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:todolist/config.dart';
+import 'package:todolist/todo_service.dart';
 
 class AddPage extends StatefulWidget {
   const AddPage({Key? key}) : super(key: key);
@@ -22,7 +20,7 @@ class _AddPageState extends State<AddPage> {
     super.dispose();
   }
 
-  Future<void> postTodo() async {
+  Future<void> saveTodo() async {
     final title = todoTitle.text.trim();
     final detail = todoDetail.text.trim();
 
@@ -41,28 +39,12 @@ class _AddPageState extends State<AddPage> {
     });
 
     try {
-      var url = AppConfig.getUri('/api/post-todolist');
-      Map<String, String> headers = {
-        "Content-type": "application/json; charset=UTF-8"
-      };
-      String jsondata = '{"title": ${jsonEncodeString(title)}, "detail": ${jsonEncodeString(detail)}}';
-
-      var response = await http.post(url, headers: headers, body: jsondata).timeout(Duration(seconds: 7));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        Navigator.pop(context, true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('บันทึกไม่สำเร็จ (รหัสสถานะ: ${response.statusCode})'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await TodoService.addTodo(title, detail);
+      Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบ IP'),
+          content: Text('เกิดข้อผิดพลาดในการบันทึกข้อมูล'),
           backgroundColor: Colors.red,
         ),
       );
@@ -73,17 +55,6 @@ class _AddPageState extends State<AddPage> {
         });
       }
     }
-  }
-
-  String jsonEncodeString(String value) {
-    return '"' +
-        value
-            .replaceAll(r'\', r'\\')
-            .replaceAll('"', r'\"')
-            .replaceAll('\n', r'\n')
-            .replaceAll('\r', r'\r')
-            .replaceAll('\t', r'\t') +
-        '"';
   }
 
   @override
@@ -120,7 +91,7 @@ class _AddPageState extends State<AddPage> {
             ),
             SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: isSaving ? null : postTodo,
+              onPressed: isSaving ? null : saveTodo,
               icon: isSaving
                   ? SizedBox(
                       width: 20,

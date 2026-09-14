@@ -1,7 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:todolist/config.dart';
+import 'package:todolist/todo_service.dart';
 
 class UpdatePage extends StatefulWidget {
   final dynamic id;
@@ -71,23 +69,12 @@ class _UpdatePageState extends State<UpdatePage> {
     });
 
     try {
-      var url = AppConfig.getUri('/api/delete-todolist/${widget.id}');
-      var response = await http.delete(url).timeout(Duration(seconds: 7));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        Navigator.pop(context, 'delete');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ลบไม่สำเร็จ (รหัสสถานะ: ${response.statusCode})'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await TodoService.deleteTodo(widget.id);
+      Navigator.pop(context, 'delete');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'),
+          content: Text('เกิดข้อผิดพลาดในการลบข้อมูล'),
           backgroundColor: Colors.red,
         ),
       );
@@ -119,28 +106,12 @@ class _UpdatePageState extends State<UpdatePage> {
     });
 
     try {
-      var url = AppConfig.getUri('/api/update-todolist/${widget.id}');
-      Map<String, String> headers = {
-        "Content-type": "application/json; charset=UTF-8"
-      };
-      String jsondata = '{"title": ${jsonEncodeString(title)}, "detail": ${jsonEncodeString(detail)}}';
-
-      var response = await http.put(url, headers: headers, body: jsondata).timeout(Duration(seconds: 7));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        Navigator.pop(context, 'update');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('อัพเดทไม่สำเร็จ (รหัสสถานะ: ${response.statusCode})'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await TodoService.updateTodo(widget.id, title, detail);
+      Navigator.pop(context, 'update');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้'),
+          content: Text('เกิดข้อผิดพลาดในการแก้ไขข้อมูล'),
           backgroundColor: Colors.red,
         ),
       );
@@ -151,17 +122,6 @@ class _UpdatePageState extends State<UpdatePage> {
         });
       }
     }
-  }
-
-  String jsonEncodeString(String value) {
-    return '"' +
-        value
-            .replaceAll(r'\', r'\\')
-            .replaceAll('"', r'\"')
-            .replaceAll('\n', r'\n')
-            .replaceAll('\r', r'\r')
-            .replaceAll('\t', r'\t') +
-        '"';
   }
 
   @override

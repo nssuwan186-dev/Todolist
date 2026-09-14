@@ -1,10 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:todolist/config.dart';
 import 'package:todolist/pages/add.dart';
 import 'package:todolist/pages/update_todolist.dart';
+import 'package:todolist/todo_service.dart';
 
 class Todolist extends StatefulWidget {
   @override
@@ -12,67 +9,38 @@ class Todolist extends StatefulWidget {
 }
 
 class _TodolistState extends State<Todolist> {
-  List todolistitems = [];
+  List<Map<String, dynamic>> todolistitems = [];
   bool isLoading = true;
-  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
-    getTodolist();
+    loadTodos();
   }
 
-  Future<void> getTodolist() async {
+  Future<void> loadTodos() async {
     setState(() {
       isLoading = true;
-      errorMessage = null;
     });
 
-    try {
-      var url = AppConfig.getUri('/api/all-todolist/');
-      var response = await http.get(url).timeout(Duration(seconds: 7));
+    final data = await TodoService.getTodos();
 
-      if (response.statusCode == 200) {
-        var result = utf8.decode(response.bodyBytes);
-        setState(() {
-          todolistitems = jsonDecode(result);
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          errorMessage = 'เซิร์ฟเวอร์ตอบกลับด้วยรหัส: ${response.statusCode}';
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        errorMessage = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (${AppConfig.serverHost})\nกรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดอยู่หรือกดแก้ไข IP';
-        isLoading = false;
-      });
-    }
+    setState(() {
+      todolistitems = data;
+      isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('รายการที่ต้องทำทั้งหมด'),
+        title: Text('รายการที่ต้องทำ'),
         actions: [
-          IconButton(
-            tooltip: 'ตั้งค่า Server IP',
-            icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              AppConfig.showServerSettingsDialog(context, () {
-                getTodolist();
-              });
-            },
-          ),
           IconButton(
             tooltip: 'รีเฟรชรายการ',
             icon: Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              getTodolist();
-            },
+            onPressed: loadTodos,
           ),
         ],
       ),
@@ -85,11 +53,11 @@ class _TodolistState extends State<Todolist> {
             if (value == true) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('เพิ่มรายการใหม่สำเร็จแล้ว'),
+                  content: Text('เพิ่มรายการใหม่เรียบร้อยแล้ว'),
                   backgroundColor: Colors.green,
                 ),
               );
-              getTodolist();
+              loadTodos();
             }
           });
         },
@@ -114,55 +82,9 @@ class _TodolistState extends State<Todolist> {
       );
     }
 
-    if (errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.cloud_off, size: 64, color: Colors.red[300]),
-              SizedBox(height: 16),
-              Text(
-                'เกิดข้อผิดพลาดในการเชื่อมต่อ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(
-                errorMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      AppConfig.showServerSettingsDialog(context, () {
-                        getTodolist();
-                      });
-                    },
-                    icon: Icon(Icons.settings),
-                    label: Text('ตั้งค่า IP'),
-                  ),
-                  SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: getTodolist,
-                    icon: Icon(Icons.refresh),
-                    label: Text('ลองใหม่อีกครั้ง'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     if (todolistitems.isEmpty) {
       return RefreshIndicator(
-        onRefresh: getTodolist,
+        onRefresh: loadTodos,
         child: ListView(
           physics: AlwaysScrollableScrollPhysics(),
           children: [
@@ -191,7 +113,7 @@ class _TodolistState extends State<Todolist> {
     }
 
     return RefreshIndicator(
-      onRefresh: getTodolist,
+      onRefresh: loadTodos,
       child: ListView.builder(
         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         itemCount: todolistitems.length,
@@ -233,12 +155,12 @@ class _TodolistState extends State<Todolist> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('ลบรายการสำเร็จแล้ว'), backgroundColor: Colors.redAccent),
                     );
-                    getTodolist();
+                    loadTodos();
                   } else if (value == 'update') {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('แก้ไขรายการสำเร็จแล้ว'), backgroundColor: Colors.green),
                     );
-                    getTodolist();
+                    loadTodos();
                   }
                 });
               },
