@@ -52,7 +52,7 @@ class _UpdatePageState extends State<UpdatePage> {
             child: Text('ยกเลิก'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(primary: Colors.red),
             onPressed: () => Navigator.pop(context, true),
             child: Text('ลบรายการ', style: TextStyle(color: Colors.white)),
           ),
